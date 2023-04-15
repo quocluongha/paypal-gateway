@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useEffect, useState } from "react";
 import "./App.css";
 
 import { PayPalButtons, PayPalScriptProvider } from "@paypal/react-paypal-js";
@@ -10,27 +10,44 @@ const paypalOptions = {
 };
 
 function App() {
+  const [order, setOrder] = useState();
+
   function _createOrder(data, actions) {
-    return actions.order.create({
-      purchase_units: [
-        {
-          amount: {
-            value: "1",
-          },
-        },
-      ],
-    });
+    return actions.order.create(order);
   }
 
   async function _onApprove(data, actions) {
     let order = await actions.order.capture();
-    console.log(order);
-    return order;
+
+    window.ReactNativeWebView &&
+      window.ReactNativeWebView.postMessage(
+        JSON.stringify({ type: "PAYPAL_ORDER_APPROVED", payload: order })
+      );
   }
 
   function _onError(err) {
     console.log(err);
   }
+
+  useEffect(() => {
+    window.ReactNativeWebView &&
+      window.ReactNativeWebView.postMessage(
+        JSON.stringify({
+          type: "PAYPAL_GATEWAY_LOADED",
+          payload: "paypal gateway is loaded",
+        })
+      );
+
+    window.addEventListener("message", (event) => {
+      try {
+        const data = JSON.parse(event.data);
+
+        if (data.type === "PAYPAL_CREATE_ORDER") {
+          setOrder(data.payload);
+        }
+      } catch {}
+    });
+  }, []);
 
   return (
     <PayPalScriptProvider options={paypalOptions}>
